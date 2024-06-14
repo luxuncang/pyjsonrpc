@@ -15,12 +15,13 @@ _A modern `Json-Rpc/Bson-Rpc` implementation, compatible with `Json-Rpc Ast` and
 ## 安装
 
 ```bash
-pip install lacia>=0.2.0rc1
+pip install lacia>=0.2
 ```
 
 ```bash
-pdm add lacia --pre
+pdm add lacia>=0.2
 ```
+
 
 ## 特性
 
@@ -54,20 +55,21 @@ pdm add lacia --pre
 **Server 端**
 
 ```python
-
-import asyncio
 from lacia.core.core import JsonRpc
-from lacia.network.server.aioserver import AioServer
+from lacia.network.server.aioserver import AioServer, mount_app
+
 namespace = {
     "ping": lambda x: f"pong {x}",
 }
 
 rpc = JsonRpc(name = "server_test", namespace=namespace)
 
-async def main():
-    await rpc.run_server(AioServer(path="/func"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -84,7 +86,7 @@ rpc = JsonRpc(
 
 async def main():
 
-    client = AioClient(path="/func")
+    client = AioClient(path="/ws")
     await rpc.run_client(client)
 
     ping = ProxyObj(rpc).ping
@@ -100,7 +102,6 @@ loop.run_until_complete(main())
 **Server 端**
 
 ```python
-import asyncio
 from lacia.core.core import JsonRpc
 from lacia.core.proxy import ProxyObj
 from lacia.network.client.aioclient import AioClient
@@ -124,10 +125,12 @@ namespace = {
 
 rpc = JsonRpc(name = "server_test", namespace=namespace)
 
-async def main():
-    await rpc.run_server(AioServer(path="/chain"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -144,12 +147,12 @@ rpc = JsonRpc(
 
 async def main():
 
-    client = AioClient(path="/func")
+    client = AioClient(path="/ws")
     await rpc.run_client(client)
 
-    ping = ProxyObj(rpc).ping
+    Test = ProxyObj(rpc).Test
 
-    assert await ping("hello") == "pong hello"
+    assert await Test(1, 2).output("world") == "hello: world, a: 1, b: 2"
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
@@ -164,7 +167,7 @@ loop.run_until_complete(main())
 import asyncio
 from lacia.core.core import JsonRpc
 from lacia.core.proxy import ProxyObj
-from lacia.network.server.aioserver import AioServer
+from lacia.network.server.aioserver import AioServer, mount_app
 
 namespace = {
     "ping": lambda x: f"pong {x}",
@@ -180,11 +183,12 @@ rpc.add_namespace({
     "reverse_call": reverse_call,
 })
 
-async def main():
-    await rpc.run_server(AioServer(path="/ws"))
+if __name__ == "__main__":
 
-asyncio.run(main())
-
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -227,7 +231,7 @@ loop.run_until_complete(main())
 import asyncio
 from lacia.core.core import JsonRpc
 from lacia.core.proxy import ProxyObj
-from lacia.network.server.aioserver import AioServer
+from lacia.network.server.aioserver import AioServer, mount_app
 
 async def test_async_iter(n: int):
     for i in range(n):
@@ -240,10 +244,12 @@ namespace = {
 
 rpc = JsonRpc(name = "server_test", namespace=namespace)
 
-async def main():
-    await rpc.run_server(AioServer(path="/ws"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -288,7 +294,7 @@ loop.run_until_complete(main())
 import asyncio
 from lacia.core.core import JsonRpc, Context
 from lacia.core.proxy import ProxyObj
-from lacia.network.server.aioserver import AioServer
+from lacia.network.server.aioserver import AioServer, mount_app
 
 async def test_async_iter(n: int):
     name = Context.name.get()
@@ -302,10 +308,12 @@ namespace = {
 
 rpc = JsonRpc(name = "server_test", namespace=namespace)
 
-async def main():
-    await rpc.run_server(AioServer(path="/ws"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -354,7 +362,7 @@ loop.run_until_complete(main())
 import asyncio
 from lacia.core.core import JsonRpc
 from lacia.core.proxy import ProxyObj
-from lacia.network.server.aioserver import AioServer
+from lacia.network.server.aioserver import AioServer, mount_app
 
 class Test:
 
@@ -375,10 +383,12 @@ namespace = {
 
 rpc = JsonRpc(name = "server_test", namespace=namespace)
 
-async def main():
-    await rpc.run_server(AioServer(path="/ws"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端**
@@ -430,10 +440,12 @@ namespace = {
 
 rpc = JsonRpc(name = "server_test")
 
-async def main():
-    await rpc.run_server(AioServer(path="/ws"))
+if __name__ == "__main__":
 
-asyncio.run(main())
+    from aiohttp import web
+    app = web.Application()
+    mount_app(app=app, server=server, rpc=rpc, path="/ws")
+    web.run_app(app, host="localhost", port=8080)
 ```
 
 **Client 端 A**

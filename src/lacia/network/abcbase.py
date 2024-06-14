@@ -5,17 +5,17 @@ from typing import Optional, TypeVar, Generic, Generator, Dict, Callable
 from lacia.types import Message
 from lacia.utils.tool import CallObj
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class Connection(Generic[T]):
-
     def __init__(self):
         self.ws: Dict[T, asyncio.Event] = {}
         self.name_ws: Dict[str, T] = {}
-    
+
     def set_ws(self, ws: T, event: asyncio.Event):
         self.ws[ws] = event
-    
+
     def set_name_ws(self, name: str, ws: T):
         self.name_ws[name] = ws
 
@@ -27,15 +27,16 @@ class Connection(Generic[T]):
 
     def clear_name_ws(self, name: str):
         self.name_ws.pop(name)
-    
+
     def get_ws(self, name: str) -> T:
         return self.name_ws[name]
-    
+
     def get_name(self, ws: T) -> str:
         for name, _ws in self.name_ws.items():
             if _ws == ws:
                 return name
         raise KeyError("no such websocket")
+
 
 class BaseServer(Generic[T]):
     active_connections: Connection[T]
@@ -70,7 +71,7 @@ class BaseServer(Generic[T]):
         ...
 
     @abstractmethod
-    async def send_json(self, websocket: T, message: Message, binary = True) -> None:
+    async def send_json(self, websocket: T, message: Message, binary=True) -> None:
         ...
 
     @abstractmethod
@@ -78,20 +79,19 @@ class BaseServer(Generic[T]):
         ...
 
     @abstractmethod
-    def on(self, event: str, func: Callable, args: Optional[tuple] = None, kwargs: Optional[dict] = None) -> None:
-        ...
-
-    @abstractmethod
-    async def close(self, code: int, reason: Optional[str] = None) -> None:
-        ...
-
-    def closed(self) -> bool:
+    def on(
+        self,
+        event: str,
+        func: Callable,
+        args: Optional[tuple] = None,
+        kwargs: Optional[dict] = None,
+    ) -> None:
         ...
 
 
 class BaseClient(Generic[T]):
     ws: T
-    
+
     @abstractmethod
     async def receive(self) -> Message:
         ...
@@ -121,7 +121,7 @@ class BaseClient(Generic[T]):
         ...
 
     @abstractmethod
-    async def send_json(self, message: Message, binary = True) -> None:
+    async def send_json(self, message: Message, binary=True) -> None:
         ...
 
     @abstractmethod

@@ -1,10 +1,8 @@
-from abc import ABC, abstractmethod, abstractclassmethod
-
-from typing import TypeVar, Generic, Type, Any, Dict, NamedTuple, Hashable
+from typing import TypeVar, Generic, Type, Any, Dict, NamedTuple, Hashable, Protocol
 from typing_extensions import Self
 
 T = TypeVar("T")
-S = TypeVar("S")
+S = TypeVar("S", contravariant=True)
 
 class Namespace(NamedTuple):
 
@@ -20,28 +18,26 @@ class Namespace(NamedTuple):
             **self.locals.get(key, {})
         }      
 
-class BaseDataTrans(ABC, Generic[T]):
+class BaseDataTrans(Protocol[T]):
 
-    @abstractclassmethod # type: ignore
+    @classmethod
     def loads(cls, obj: T) -> Self:
         ...
     
-    @abstractmethod
     def dumps(self) -> T:
         ...
 
-class BaseRunTime(ABC, Generic[S]):
+class BaseRunTime(Generic[S]):
 
     def __init__(self, namespace: Dict[str, Any], proxy, proxyresult):
         self.namespace = namespace
         self.proxy = proxy
         self.proxyresult = proxyresult
 
-    @abstractmethod
     async def run(self, obj: S) -> Any:
         ...
 
-class BaseStandard(ABC, Generic[T, S]):
+class BaseStandard(Protocol[T, S]):
     
     datatrans: Type[BaseDataTrans[T]]
     runtime: Type[BaseRunTime[S]]

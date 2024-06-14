@@ -2,7 +2,6 @@ name: Python Package Release
 
 on:
   push:
-    branches: [ "laica2.0" ]
     tags:
       - 'v*.*.*'  # 触发工作流的标签格式，遵循语义版本控制
       - 'v*.*.*alpha*'  # 匹配预发布版本
@@ -16,7 +15,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: pdm-project/setup-pdm@v3
+      - uses: actions/checkout@v4
+      - uses: pdm-project/setup-pdm@v4
       - name: Publish package distributions to PyPI
         run: pdm publish

@@ -4,16 +4,18 @@ from lacia.logger import logger
 from lacia.standard.jsonast.runtime import RunTime, Standard, Namespace, JsonAst
 from lacia.core.proxy import ProxyObj, ResultProxy
 
+
 async def test_aping(x):
     return f"pong: {x}"
+
 
 async def test_async_iter(n):
     for i in range(n):
         await asyncio.sleep(1)
         yield i
 
-class TestJson:
 
+class TestJson:
     def __init__(self, a, b=1, c: dict = {}) -> None:
         self.a = a
         self.b = b
@@ -21,10 +23,10 @@ class TestJson:
 
     def sum(self):
         return self.a + self.b
-    
+
     def test_return(self, text):
         return f"return: {text}"
-    
+
 
 namespace = {
     "test_attribute": "Hello World!",
@@ -36,8 +38,8 @@ namespace = {
 }
 #  嵌套
 
-class Test:
 
+class Test:
     async def test_attribute(self):
         runtime = Standard.runtime(namespace, ProxyObj, ResultProxy)
         obj = ProxyObj()
@@ -97,7 +99,7 @@ class Test:
         astobj = c_obj.test_ping(b_obj)._obj
 
         r = await runtime.run(astobj)
-        
+
         assert r == "pong: return: pong: ping"
 
     async def test_getattr(self):
@@ -128,8 +130,9 @@ class Test:
                 await getattr(self, func)()
                 logger.success(f"{func} passed")
 
+
 async def main():
     await Test().main()
 
+
 asyncio.run(main())
-        

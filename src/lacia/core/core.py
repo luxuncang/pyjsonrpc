@@ -17,8 +17,8 @@ from lacia.exception import JsonRpcInitException
 
 T = TypeVar("T")
 
+
 class JsonRpc(BaseJsonRpc, Generic[T]):
-    
     def __init__(
         self,
         name: str,
@@ -27,7 +27,6 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
         token: Optional[str] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         debug: bool = False,
- 
     ) -> None:
         self._name = name
         self._execer = execer
@@ -58,17 +57,16 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
         if self._loop:
             self._loop.create_task(self._listening_server(self._client.ws))
             logger.info("run client")
-    
+
     async def run_server(self, server: BaseServer) -> None:
         self._loop = self._loop or asyncio.get_event_loop()
-        nest_apply()
+        # nest_apply()
         self._standard.init_standard()
         self._server = server
         self._server.on("connect", self._listening_client)
         self._server.on("disconnect", self.on_server_close)
         logger.info("run server")
-        await server.start()
-    
+
     async def _listening_client(self, websocket: T):
         logger.info("listening client")
         Context.websocket.set(websocket)
@@ -109,9 +107,9 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
                     else:
                         qmgs.put_nowait(msg)
                 elif msg.is_response:
-                    rmsg = ResultProxy(msg, core=self, by=by_name) # type: ignore
+                    rmsg = ResultProxy(msg, core=self, by=by_name)  # type: ignore
                     self._wait_result[msg.id] = rmsg
-                    self._wait_remote[msg.id].set()    
+                    self._wait_remote[msg.id].set()
         else:
             raise JsonRpcInitException("server is None")
 
@@ -120,12 +118,13 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
         Context.websocket.set(websocket)
         Context.namespace.set(self._namespace)
         Context.rpc.set(self)
-        Context.name.set(None) # type: ignore
+        Context.name.set(None)  # type: ignore
 
         if self._client is not None:
-            
             if self._loop:
-                self._loop.create_task(self.run(ProxyObj().rpc_auto_register(self._name, self._token)))
+                self._loop.create_task(
+                    self.run(ProxyObj().rpc_auto_register(self._name, self._token))
+                )
 
             async for message in self._client.iter_json():
                 logger.debug(f"receive: {message}")
@@ -134,15 +133,16 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
                 if msg.is_request and self._execer and self._loop:
                     self._loop.create_task(self._c_execute(websocket, msg))
                 elif msg.is_response:
-                    rmsg = ResultProxy(msg, core=self, by=None) # type: ignore
+                    rmsg = ResultProxy(msg, core=self, by=None)  # type: ignore
                     self._wait_result[msg.id] = rmsg
                     self._wait_remote[msg.id].set()
         else:
             raise JsonRpcInitException("client is None")
-    
-    async def _s_execute(self, websocket: T, message: RpcMessage): 
 
-        result, error = await self._standard.rpc_request(message.data, self._namespace[websocket], ProxyObj, ResultProxy)
+    async def _s_execute(self, websocket: T, message: RpcMessage):
+        result, error = await self._standard.rpc_request(
+            message.data, self._namespace[websocket], ProxyObj, ResultProxy
+        )
 
         if error is None:
             if websocket not in self._namespace.locals:
@@ -151,46 +151,39 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
             msg = {
                 "jsonrpc": message.jsonrpc,
                 "id": message.id,
-                "result": self._pretreatment(result)
+                "result": self._pretreatment(result),
             }
         else:
-            msg = {
-                "jsonrpc": message.jsonrpc,
-                "id": message.id,
-                "error": error
-            }
+            msg = {"jsonrpc": message.jsonrpc, "id": message.id, "error": error}
         if self._server is not None:
             logger.debug(f"send: {msg}")
-            
-            await self._server.send_json(websocket, msg)
-    
-    async def _c_execute(self, websocket: T, message: RpcMessage):
 
-        result, error = await self._standard.rpc_request(message.data, self._namespace[websocket], ProxyObj, ResultProxy)
+            await self._server.send_json(websocket, msg)
+
+    async def _c_execute(self, websocket: T, message: RpcMessage):
+        result, error = await self._standard.rpc_request(
+            message.data, self._namespace[websocket], ProxyObj, ResultProxy
+        )
 
         if error is None:
             if websocket not in self._namespace.locals:
                 self._namespace.locals[websocket] = {}
-            self._namespace.locals[websocket][message.id] = result # TODO 内存泄漏
+            self._namespace.locals[websocket][message.id] = result  # TODO 内存泄漏
             msg = {
                 "jsonrpc": message.jsonrpc,
                 "id": message.id,
-                "result": self._pretreatment(result)
+                "result": self._pretreatment(result),
             }
         else:
-            msg = {
-                "jsonrpc": message.jsonrpc,
-                "id": message.id,
-                "error": error
-            }
+            msg = {"jsonrpc": message.jsonrpc, "id": message.id, "error": error}
 
         if self._client is not None:
             logger.debug(f"send: {msg}")
-            await self._client.send_json(msg) 
+            await self._client.send_json(msg)
 
     def on_client_close(self, websocket: T):
         del self._namespace.locals[websocket]
-    
+
     def on_server_close(self, websocket: T):
         del self._namespace.locals[websocket]
 
@@ -218,7 +211,7 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
         await event.wait()
 
         return self._wait_result.pop(uuid_str)
- 
+
     async def reverse_run(self, name: str, proxy: BaseProxy[BaseDataTrans]):
         uuid_str = str(uuid4())
         if proxy._obj is None:
@@ -236,7 +229,9 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
 
         if self._server is not None:
             logger.debug(f"send: {msg}")
-            await self._server.send_json(self._server.active_connections.get_ws(name), msg)
+            await self._server.send_json(
+                self._server.active_connections.get_ws(name), msg
+            )
         else:
             raise JsonRpcInitException("server and client are None S")
 
@@ -244,7 +239,9 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
 
         return self._wait_result.pop(uuid_str)
 
-    async def _client_auth(self, event: asyncio.Event, qmgs: asyncio.Queue, websocket: T):
+    async def _client_auth(
+        self, event: asyncio.Event, qmgs: asyncio.Queue, websocket: T
+    ):
         await event.wait()
         if self._server is not None:
             Context.name.set(self._server.active_connections.get_name(websocket))
@@ -258,6 +255,7 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
                 if isinstance(obj, bytes):
                     return None
                 return super().default(obj)
+
         try:
             json.dumps(data, cls=BytesEncoder)
             return data
@@ -273,4 +271,4 @@ class JsonRpc(BaseJsonRpc, Generic[T]):
 
     @property
     def jsonast(self):
-        return ProxyObj(self) # type: ignore
+        return ProxyObj(self)  # type: ignore

@@ -12,8 +12,10 @@ T = TypeVar("T", bound=BaseDataTrans)
 
 Schema = TypeVar("Schema")
 
+
 def with_schema(obj, schema: Type[Schema]) -> Schema:
     return cast(schema, obj)
+
 
 class BaseProxy(Generic[T]):
     _jsonrpc: str
@@ -22,10 +24,16 @@ class BaseProxy(Generic[T]):
     def __await__(self):
         ...
 
+
 class ProxyObj(BaseProxy):
     _jsonrpc: str = "jsonast"
 
-    def __init__(self, core: Optional["JsonRpc[JsonAst]"] = None, name: Optional[str] = None, vision: bool = True):
+    def __init__(
+        self,
+        core: Optional["JsonRpc[JsonAst]"] = None,
+        name: Optional[str] = None,
+        vision: bool = True,
+    ):
         self._aiter: Optional["ResultProxy"] = None
         self._obj = ["server", None] if name is None else ["client", name]
         self._core = core
@@ -35,7 +43,7 @@ class ProxyObj(BaseProxy):
     def __getattr__(self, name: str) -> "ProxyObj":
         self = self._newobj()
 
-        obj = JsonAst( 
+        obj = JsonAst(
             obj=self._obj,
             method="__getattr__",
             args=(name,),
@@ -45,15 +53,14 @@ class ProxyObj(BaseProxy):
         return self
 
     def __call__(self, *args, **kwargs) -> "ProxyObj":
-
         self = self._newobj()
 
         n_args = []
         n_kwargs = {}
         for i in args:
             n_args.append(self._expand(i))
-        
-        for k,v in kwargs.items():
+
+        for k, v in kwargs.items():
             n_kwargs[k] = self._expand(v)
 
         obj = JsonAst(
@@ -88,25 +95,15 @@ class ProxyObj(BaseProxy):
     def __aiter__(self):
         self = self._newobj()
 
-        obj = JsonAst(
-            obj=self._obj,
-            method="__aiter__",
-            args=(),
-            kwargs={}
-        )
+        obj = JsonAst(obj=self._obj, method="__aiter__", args=(), kwargs={})
         self._obj = obj
 
         return self
-    
+
     def __anext_proxy__(self):
         self = self._newobj()
 
-        obj = JsonAst(
-            obj=self._obj,
-            method="__anext__",
-            args=(),
-            kwargs={}
-        )
+        obj = JsonAst(obj=self._obj, method="__anext__", args=(), kwargs={})
         self._obj = obj
 
         return self
@@ -115,9 +112,9 @@ class ProxyObj(BaseProxy):
         if self._core is None:
             raise TypeError("ProxyObj is not bind to JsonRpc")
         if not self._aiter:
-            if not self._core._client is None:
+            if self._core._client is not None:
                 data = await self._core.run(self)
-            elif not self._core._server is None:
+            elif self._core._server is not None:
                 if self._name is None:
                     raise JsonRpcRuntimeException("client name is None")
                 data = await self._core.reverse_run(self._name, self)
@@ -133,9 +130,9 @@ class ProxyObj(BaseProxy):
     def __await__(self):
         if self._core is None:
             raise TypeError("ProxyObj is not bind to JsonRpc")
-        if not self._core._client is None:
+        if self._core._client is not None:
             data = yield from self._core.run(self).__await__()
-        elif not self._core._server is None:
+        elif self._core._server is not None:
             if self._name is None:
                 raise JsonRpcRuntimeException("client name is None")
             data = yield from self._core.reverse_run(self._name, self).__await__()
@@ -146,9 +143,14 @@ class ProxyObj(BaseProxy):
             return data.visions
         return data
 
-class ResultProxy(BaseProxy):
 
-    def __init__(self, result: RpcMessage, core: Optional["JsonRpc[JsonAst]"] = None, by: Optional[str] = None):
+class ResultProxy(BaseProxy):
+    def __init__(
+        self,
+        result: RpcMessage,
+        core: Optional["JsonRpc[JsonAst]"] = None,
+        by: Optional[str] = None,
+    ):
         self._core = core
         self._result = result
         self._by = by
@@ -163,7 +165,7 @@ class ResultProxy(BaseProxy):
         return self._result.result
 
     def __getattr__(self, name: str) -> "ProxyObj":
-        return getattr(getattr(ProxyObj(self._core, self._by), self._result.id), name) # type: ignore
+        return getattr(getattr(ProxyObj(self._core, self._by), self._result.id), name)  # type: ignore
 
     async def __aiter__(self):
         return self
@@ -173,13 +175,12 @@ class ResultProxy(BaseProxy):
             raise TypeError("ProxyObj is not bind to JsonRpc")
         obj = getattr(ProxyObj(self._core, self._by), self._result.id).__anext_proxy__()
 
-        if not self._core._client is None:
+        if self._core._client is not None:
             data = await self._core.run(obj)
-        elif not self._core._server is None:
+        elif self._core._server is not None:
             if self._by is None:
                 raise JsonRpcRuntimeException("client name is None")
             data = await self._core.reverse_run(self._by, obj)
         else:
             raise JsonRpcRuntimeException("server and client are None")
         return data.visions
-

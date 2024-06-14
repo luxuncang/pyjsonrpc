@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Dict
+from typing import Optional, Dict, TYPE_CHECKING
 
 import orjson
 import bson
@@ -11,40 +11,31 @@ from lacia.logger import logger
 from lacia.utils.tool import CallObj
 from lacia.exception import JsonRpcWsConnectException
 
+if TYPE_CHECKING:
+    from lacia.core.core import JsonRpc
+
+
 class AioServer(BaseServer[web.WebSocketResponse]):
     on_events = {}
 
     def __init__(
         self,
-        path: str = "",
-        host: str = "localhost",
-        port: int = 8080,
-        loop: Optional[asyncio.AbstractEventLoop] = None
+        loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> None:
-        self.app = web.Application()
         self.active_connections: Connection[web.WebSocketResponse] = Connection()
         self.name_connections: Dict[str, web.WebSocketResponse] = {}
         self.loop = loop
-        self.path = path
-        self.host = host
-        self.port = port
-
-    def start(self) -> None: 
-        self.app.add_routes([web.get(self.path, self.websocket_handler)])
-        if self.loop is None: 
-            self.loop = asyncio.get_event_loop()
-        web.run_app(self.app, host=self.host, port=self.port, print=logger.info, loop=self.loop)  # type: ignore 
 
     async def websocket_handler(self, request):
         event = asyncio.Event()
         ws = web.WebSocketResponse(autoclose=False)
         await ws.prepare(request)
         self.active_connections.set_ws(ws, event)
-        
+
         logger.success(f"{str(ws)} connected.")
 
         obj = self.on_events.get("connect")
-        if not obj is None:
+        if obj is not None:
             await obj.method(ws, *obj.args, **obj.kwargs)
 
         await event.wait()
@@ -52,7 +43,7 @@ class AioServer(BaseServer[web.WebSocketResponse]):
 
     def disconnect(self, websocket: web.WebSocketResponse):
         for ws, event in self.active_connections.ws.items():
-            if ws == websocket: 
+            if ws == websocket:
                 event.set()
                 self.active_connections.clear_ws(ws)
                 break
@@ -84,30 +75,32 @@ class AioServer(BaseServer[web.WebSocketResponse]):
             return data.data
 
     async def iter_bytes(self, websocket: web.WebSocketResponse):
+        ws_name = str(websocket)
         try:
             while True:
                 data = await self.receive_bytes(websocket)
                 if data:
                     yield data
         except JsonRpcWsConnectException:
-            logger.info(f"{str(websocket)} disconnected.")
+            logger.info(f"{ws_name} disconnected.")
         except Exception as e:
-            logger.error(e)
-            logger.info(f"{str(websocket)} disconnected.")
+            print(e)
+            logger.info(f"{ws_name} disconnected.")
         finally:
             return
 
     async def iter_json(self, websocket: web.WebSocketResponse):
+        ws_name = str(websocket)
         try:
             while True:
                 data = await self.receive_json(websocket)
                 if data:
                     yield data
         except JsonRpcWsConnectException:
-            logger.info(f"{str(websocket)} disconnected.")
+            logger.info(f"{ws_name} disconnected.")
         except Exception as e:
             print(e)
-            logger.info(f"{str(websocket)} disconnected.")
+            logger.info(f"{ws_name} disconnected.")
         finally:
             return
 
@@ -124,20 +117,35 @@ class AioServer(BaseServer[web.WebSocketResponse]):
     async def close_ws(self, websocket: web.WebSocketResponse):
         name = str(websocket)
         obj = self.on_events.get("disconnect")
-        if not obj is None:
+        if obj is not None:
             await obj.method(websocket, *obj.args, **obj.kwargs)
         self.disconnect(websocket)
         logger.info(f"{name} disconnected.")
-
-    async def close(self):
-        await self.app.shutdown()
 
     async def on_shutdown(self):
         for ws, event in self.active_connections.ws.items():
             await ws.close(code=WSCloseCode.GOING_AWAY, message=b"Server shutdown")
             event.set()
 
-    def on(self, event: str, func, args: Optional[tuple] = None, kwargs: Optional[dict] = None) -> None:
+    def on(
+        self,
+        event: str,
+        func,
+        args: Optional[tuple] = None,
+        kwargs: Optional[dict] = None,
+    ) -> None:
         self.on_events[event] = CallObj(method=func, args=args, kwargs=kwargs)
 
 
+def mount_app(
+    app: web.Application,
+    server: AioServer,
+    rpc: "JsonRpc",
+    path: str = "/ws",
+    **kwargs,
+):
+    async def startup_func(app):
+        await rpc.run_server(server)
+
+    app.on_startup.append(startup_func)
+    app.add_routes([web.get(path, server.websocket_handler, **kwargs)])

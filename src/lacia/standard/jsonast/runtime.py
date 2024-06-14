@@ -1,4 +1,3 @@
-
 import asyncio
 from typing import Dict, Any, Type, TYPE_CHECKING
 
@@ -9,46 +8,70 @@ from lacia.types import Context
 if TYPE_CHECKING:
     from lacia.core.proxy import ProxyObj, ResultProxy
 
+
 class RunTime(BaseRunTime[JsonAst]):
-    
-    def __init__(self, namespace: Dict[str, Any], proxy: Type["ProxyObj"], proxyresult: Type["ResultProxy"]):
+    def __init__(
+        self,
+        namespace: Dict[str, Any],
+        proxy: Type["ProxyObj"],
+        proxyresult: Type["ResultProxy"],
+    ):
         self.namespace = namespace
         self.proxy = proxy
         self.proxyresult = proxyresult
-        self.rpc = Context.rpc.get()
-        self.is_server = self.rpc.is_server()
-        self.self_name = self.rpc._name
-        # self.is_server = True
-        # self.self_name = "server_test"
+        try:
+            self.rpc = Context.rpc.get()
+            self.is_server = self.rpc.is_server()
+            self.self_name = self.rpc._name
+        except Exception:
+            self.rpc = None
+            self.is_server = True
+            self.self_name = None
 
     async def run(self, ast):
         if isinstance(ast, JsonAst):
             if isinstance(ast.obj, JsonAst):
                 obj = await self.run(ast.obj)
-            elif ast.obj is None or (ast.obj == ["server", None] and self.is_server) or (ast.obj == ["client", self.self_name] and not self.is_server):
-                if not ast.args is None:
+            elif (
+                ast.obj is None
+                or (ast.obj == ["server", None] and self.is_server)
+                or (ast.obj == ["client", self.self_name] and not self.is_server)
+            ):
+                if ast.args is not None:
                     if len(ast.args) == 1 and isinstance(ast.args[0], str):
                         obj = self.namespace[ast.args[0]]
                         return obj
                     else:
                         raise TypeError(f"obj type error: {ast.obj}")
                 else:
-                    raise TypeError(f"obj type error: {ast.obj}")    
+                    raise TypeError(f"obj type error: {ast.obj}")
             elif isinstance(ast.obj, str):
                 obj = self.namespace[ast.obj]
-            elif isinstance(ast.obj, list) and len(ast.obj) == 2 and ast.obj[0] == "server":
+            elif (
+                isinstance(ast.obj, list)
+                and len(ast.obj) == 2
+                and ast.obj[0] == "server"
+            ):
                 obj = self.proxy(self.rpc, vision=False)
-            elif isinstance(ast.obj, list) and len(ast.obj) == 2 and ast.obj[0] == "client":
-                obj = self.proxy(self.rpc, ast.obj[1], vision=False) 
+            elif (
+                isinstance(ast.obj, list)
+                and len(ast.obj) == 2
+                and ast.obj[0] == "client"
+            ):
+                obj = self.proxy(self.rpc, ast.obj[1], vision=False)
             else:
                 raise TypeError(f"obj type error: {ast.obj}")
             if ast.method is None or ast.obj is None:
                 return obj
-            if not ast.args is None:
-                if len(ast.args) == 1 and ast.method == "__getattr__" and isinstance(ast.args[0], str):
+            if ast.args is not None:
+                if (
+                    len(ast.args) == 1
+                    and ast.method == "__getattr__"
+                    and isinstance(ast.args[0], str)
+                ):
                     return getattr(obj, ast.args[0])
             func = getattr(obj, ast.method)
-            if ast.args is None and ast.kwargs is None: 
+            if ast.args is None and ast.kwargs is None:
                 return func
             if ast.method == "__anext__":
                 return await func()
@@ -58,7 +81,7 @@ class RunTime(BaseRunTime[JsonAst]):
             for i in ast.args or ():
                 args.append(await self.run(i))
             if ast.kwargs:
-                for k,v in ast.kwargs.items():
+                for k, v in ast.kwargs.items():
                     kwargs[k] = await self.run(v)
             args = tuple(args)
 
@@ -83,10 +106,9 @@ class RunTime(BaseRunTime[JsonAst]):
         else:
             return ast
 
-class Standard(BaseStandard[dict, JsonAst]):
 
+class Standard(BaseStandard[dict, JsonAst]):
     _jsonrpc = "jsonast"
 
     datatrans: Type[JsonAst] = JsonAst
     runtime: Type[RunTime] = RunTime
-

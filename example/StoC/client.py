@@ -1,7 +1,7 @@
 import asyncio
 from lacia.core.core import JsonRpc
 from lacia.core.proxy import ProxyObj
-from lacia.network.client.aioclient import AioClient
+from lacia.network.client.aiohttp import AioClient
 
 rpc = JsonRpc(
     name="client_test",

@@ -1,5 +1,5 @@
 
-from typing import TypeVar, Generic, Dict
+from typing import TypeVar, Generic, Dict, ClassVar
 
 from lacia.logger import logger
 from lacia.types import JsonRpcCode
@@ -44,7 +44,7 @@ class Standard(Generic[S]):
                 if isinstance(result, proxy):
                     result = await result
                 if isinstance(result, proxyresult):
-                    if not data["method"]["method"] in ("__aiter__", "__anext__"):
+                    if data["method"]["method"] not in ("__aiter__", "__anext__"):
                         result = result.visions
             except StopAsyncIteration as e:
                 return result, {"code": JsonRpcCode.StopAsyncIterationError, "message": ""}
